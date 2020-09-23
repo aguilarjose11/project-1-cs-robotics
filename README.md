@@ -1,12 +1,17 @@
 Project 1 -- CS-4023
 ====================
 
+Notes:
+-------
+
+ 1. Could we just copy and paste the robot simulation we made during the tutorial and just add out code to move? __Investigate.__
+
 TODO:
 -----
 
- - [ ] Create Package and basic folders.
- - [ ] Figure out how to create a world as specified by the project.
- - [ ] Add basic C++ code (Figure out how).
+ - [x] Create Package and basic folders.
+ - [ ] Figure out how to create a world as specified by the project (See Note 1).
+ - [ ] Add basic C++ code (Figure out how, Note 1).
  - [ ] Follow Dr. hougen's HW example from 2003 and see if it is actually useful.
  - [ ] Other?
 
