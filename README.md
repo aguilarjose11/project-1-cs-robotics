@@ -4,13 +4,13 @@ Project 1 -- CS-4023
 Notes:
 -------
 
- 1. Could we just copy and paste the robot simulation we made during the tutorial and just add out code to move? __Investigate.__
+1. The tutorials are _actually_ pretty helpfull.
 
 TODO:
 -----
 
  - [x] Create Package and basic folders.
- - [ ] Figure out how to create a world as specified by the project (See Note 1).
+ - [x] Figure out how to create a world as specified by the project (See Note 1).
  - [ ] Add basic C++ code (Figure out how, Note 1).
  - [ ] Follow Dr. hougen's HW example from 2003 and see if it is actually useful.
  - [ ] Other?
@@ -36,3 +36,23 @@ Useful Commands:
 
 `catkin_make`
  - Used for rebuilding packages.
+ 
+ Design Notes:
+ -------------
+ 
+ We will create a .launch file that will launch the following in order:
+ 1. Launch the turtlebot_gazebo with the specified world.
+ 2. Launch our main node where we will do the solution in c++ for the project.
+ 
+ #### The solution for the project.
+ 
+ The following are topics that we may need.
+ * /mobile_base/events/bumper
+  * Detects bumps with the `kobuki_msgs/BumperEvent`
+  * message details:
+    * state changes to 1 when bumped, 0 otherwise.
+    * bumper stays as 1
+ 
+ * /camera/depth/points?
+  * We need to figure out how to get depth.
+  
