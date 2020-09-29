@@ -1,0 +1,5 @@
+<launch>
+    <group ns="teleop_control">
+            <node pkg="turtlebot_teleop" name="key_capturer" type="turtlebot_teleop_key" output="screen"/>
+    </group>
+</launch>

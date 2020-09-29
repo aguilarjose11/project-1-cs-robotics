@@ -3,6 +3,7 @@
         <arg name="world_file" value="$(find reactive_robot)/world/project1.world"/>
     </include>
     <group ns="project1">
-        <node pkg="reactive_robot" name="project1_soln" type="node_control"/>
+        <node pkg="reactive_robot" name="project1_soln" type="node_control" output="log"/>
     </group>
+    <include file="$(find turtlebot_navigation)/launch/includes/gmapping/gmapping.launch.xml"/>
 </launch>

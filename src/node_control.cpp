@@ -13,7 +13,7 @@
 #include <vector>
 
 #define DEBUG true
-#define OFFSET_TBII double(0.5)
+#define OFFSET_TBII double(0.4)
 // Offset of the turtlebot's kinect laser scan. (it cannot detect anything below 0.5: too close!)
 // Topics to use:
 /*
@@ -38,6 +38,11 @@ bool ESCAPE_FLAG = false; // symmetrical obstacle
 bool AVOID_FLAG = false; //asymmetric obstacle
 bool LEFT_OBSTACLE = false;
 bool RIGHT_OBSTACLE = false;
+// KEY TELEOP.
+bool MOVE_FORWARD = false;
+bool MOVE_BACKWARDS = false;
+bool TURN_LEFT = false;
+bool TURN_RIGHT = false;
 
 // function to return the smallest values within an array of unknown size
 // but assumed to not be empty, null, nor undefined.
@@ -274,11 +279,11 @@ void RobotObstacleDetection::CallBack(sensor_msgs::LaserScan msg)
     {
         if(obstacle_locations.at(i) < 0) // mainly on the left.
         {
-            LEFT_OBSTACLE = true;
+            RIGHT_OBSTACLE = true;
         }
         else // mainly on the right.
         {
-            RIGHT_OBSTACLE = true;
+            LEFT_OBSTACLE = true;
         }
         
     }
@@ -438,6 +443,33 @@ Note: The schema theory program depicted in Ex. 4 uses a parallel approach.
 Instead
 */
 
+
+void teleop_callback(geometry_msgs::Twist msg)
+{
+    MOVE_BACKWARDS = false; // +1
+    MOVE_FORWARD = false; // -1
+    TURN_LEFT = false; // 1
+    TURN_RIGHT = false; // -1
+    if(msg.linear.x > 0) // move forward
+    {
+        MOVE_FORWARD = true;
+    }
+    if(msg.linear.x < 0) // move backwards
+    {
+        MOVE_BACKWARDS = true;
+    }
+    if(msg.angular.z > 0) // turning left
+    {
+        TURN_LEFT = true;
+    }
+    if(msg.angular.z < 0) // turning right
+    {
+        TURN_RIGHT = true;
+    }
+    return;
+}
+
+
 int main(int argc, char **argv)
 {
         // Initializes this ros node
@@ -459,11 +491,13 @@ int main(int argc, char **argv)
         ros::Subscriber bump_sub = n.subscribe("/mobile_base/events/bumper", 1000, bumpCheck);
         // scan_sub: the laser scan topic contains the information on the closeness of objects.
         ros::Subscriber scan_sub = n.subscribe("/scan", 1000, &RobotObstacleDetection::CallBack, &robot_obst);
+        // 
+        ros::Subscriber teleop_sub = n.subscribe("/teleop_control/key_capturer/cmd_vel", 1000, teleop_callback);
 
 
         // rate at which the program is running/publishing: 5 hz
         // ;Therefore, 5 revolutions per second: 1/5 seconds
-        const int HZ_ROS = 5; // 
+        const int HZ_ROS = 15; // 
         const double ROBOT_SPEED = 0.25; // whats robot speed 0 - 1.
         const double RADIAN_TOP_SPEED = ((HZ_ROS * 15 * M_PI)/180); // multiply
 
@@ -509,6 +543,12 @@ int main(int argc, char **argv)
                     if(count == 0)
                     {
                         pos_or_neg = (int)(rand()%2);
+                        count = 2;
+                    }
+                    else
+                    {
+                        count--;
+
                     }
                     msg.linear.x = double(0.0);
                     msg.angular.z = double((pos_or_neg == 0)?(1):(-1));
@@ -556,6 +596,26 @@ int main(int argc, char **argv)
 /*               msg.linear.x = double(0.0);
                msg.angular.z = double(-1.0);*/
            // If we have bumped with something: stop
+           if(MOVE_FORWARD)
+           {
+               msg.linear.x = double(ROBOT_SPEED);
+               msg.angular.z = double(0);
+           }
+           if(MOVE_BACKWARDS)
+           {
+               msg.linear.x = double(-ROBOT_SPEED);
+               msg.angular.z = double(0);
+           }
+           if(TURN_LEFT)
+           {
+               msg.angular.z = double(1.0);
+               msg.linear.x = float(0);
+           }
+           if(TURN_RIGHT)
+           {
+               msg.angular.z = double(-1.0);
+               msg.linear.x = float(0);
+           }
            if(BUMP_FLAG)
            {
                msg.linear.x = double(0.0);
