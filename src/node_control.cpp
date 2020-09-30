@@ -1,5 +1,5 @@
 // Project 1 Inteligent Robotics
-// Follow schema theory.
+// Follows schema theory.
 #include "ros/ros.h"
 #include "geometry_msgs/Twist.h"
 #include "geometry_msgs/Pose.h"
@@ -12,8 +12,13 @@
 #include <stdlib.h>
 #include <vector>
 
+
+// Debuging mode
 #define DEBUG true
+// Offset of the kinect inside the turtlebot
 #define OFFSET_TBII double(0.4)
+
+
 // Offset of the turtlebot's kinect laser scan. (it cannot detect anything below 0.5: too close!)
 // Topics to use:
 /*
@@ -21,8 +26,10 @@
      - gives wether we have come across an object.
     /odom
      - odometry data to know where the robot is at.
+    /scan
+     - Gives data from laser as of proximity of objects.
     
-/*
+Required actions:
 1.- halt if colision detected by bumper
 2. accept keyboard movement commands from human user: use the given teleops?
 3. escape from symmetric obstacles within 1 ft in front (anything closer than 1ft we shoul turn away from it)
@@ -32,6 +39,8 @@
 */
 
 // Global variables:
+// these flags are used as schema theory.
+// as they get activated, so the command to be executed
 bool BUMP_FLAG = false;
 bool OBSTACLE_FLAG = false;
 bool ESCAPE_FLAG = false; // symmetrical obstacle
@@ -39,13 +48,14 @@ bool AVOID_FLAG = false; //asymmetric obstacle
 bool LEFT_OBSTACLE = false;
 bool RIGHT_OBSTACLE = false;
 // KEY TELEOP.
+// These are special flag as to tell which keys were selected in the teleop
 bool MOVE_FORWARD = false;
 bool MOVE_BACKWARDS = false;
 bool TURN_LEFT = false;
 bool TURN_RIGHT = false;
 
 // function to return the smallest values within an array of unknown size
-// but assumed to not be empty, null, nor undefined.
+// Used to create the obstacle "map"
 // Returns by refference the place where it was found in the array.
 template <class T>
 T getMinVal(std::vector<T> values, unsigned int* place)
@@ -71,7 +81,7 @@ T getMinVal(std::vector<T> values, unsigned int* place)
 // activity the robot is expected to do; hence the return true.
 bool cruise_mode()
 {
-    // Always return true.
+    // Always return true. always on.
     return true;
 }
 
@@ -82,106 +92,26 @@ void bumpCheck(const kobuki_msgs::BumperEvent msg)
      BUMP_FLAG = (msg.state)?(true):(false);
      ROS_INFO("bump state: %d", msg.state);
 }
-/*
-This next section will talk about the if the robot gets into a collison 
-and what to do if that happens 
-global variables:
-escapeAlert // this will be the flag that goes true if there is a need to esacpe else this is false
 
-escapeSense // This will basically say where the collison is located 
-escapeCommand // this will  tell which way to go to leave the collision
-*/
-void escape()
-{
-/*
-This method will use  awhile loop
-This method will check all of the bumpers on the bot 
-if any bumper detetcts anything:
-    escape alert = True
-    else escape_alert = False
-*/
-    return;
-}
 
-void escapeLocator()
-{
-    /*
-
-    Note of changed:
-    The message in charge of the bumper doesn't carry multiple bumpers, but
-    rather it simply tells wether the bumper hit something. no need to be 
-    checking which bumper was activated. once we bump on something, state 
-    in the mesage turns to 1, 0 otherwise.
-
-    This method will basically detect where the collision is based off off 
-    of which bumper is sending a signal 
-    This method will have a while loop 
-    This method will check each bumper
-    if right and left bumpers are detecting something:
-        escapseSense = front collision
-    else if bumpLeft:
-        escapseSense = left collision
-    else if bump right:
-        escapeSense = right collison
-    else if bumpBack:
-        escapeSense = rear colliosion
-        */
-    return;
-}
-
-void escapeMotorDirection() // might change function name later
-{
-/*
-This method will tell the motor which way to go to escape the collision 
-This method will have  a while loop 
-first checks if escape alert is on:
-    then checks which bumper detects something using if statements 
-    then if any bumper is on: 
-    3 things happen:
-    escape alert is set to true 
-    a dircetion to escape the collision is given and then a sleep method is 
-    called such as sleep(# in sec I beleive)
-    Logic:
-    if escapeSense = forward collison:
-        escape alert = true 
-        command is to go back
-        then sleep for .2 sec
-        then command is to go left 
-        then sleep .2 sec
-    else if escapeSense = left collision:
-        escape alert = true
-        command is to go right 
-        then sleep .2 sec
-    else if escapeSense = right collision:
-        esacpeAlert  = true
-        command is to go left
-        then sleep .2 sec
-    else if escapeSense = rear collision:
-        escapeAlert = true 
-        command is go left 
-        then sleep .2 sec 
-*/
-    return;
-}
-/*
-These following methods will correlate to sensing and avoiding 
-the obstacles
-global variable names we will use :
-avoid_alert // this willed for the direction to go to avoid 
-avoid vision // This wil be the alert saying that something needs to be avoided 
-avoid // this will be usl be for sensors if an obstacle is spotted 
-*/
 // Call back
 
+/*
+This class stores and updates the global flags. the data that is 
+handled is mainly laser scan comming from the /scan topic
+*/
 class RobotObstacleDetection
 {
     public:
+        // constructor.
         RobotObstacleDetection();
-        // Takes care of the call backs
+        // Takes care of the call backs from topic
         void CallBack(sensor_msgs::LaserScan msg);
+        // accessor methods
         float getClosestValue() {return this->min_val;}
         float getAngleOfClosest() {return this->angle_rad;}
         float getAreaVision() {return this->total_area_vision;}
+        // As the data is analysed, returns "peaks" of close obstacles
         int getNextObstacle(sensor_msgs::LaserScan msg);
     private:
         float angle_increment, min_val, angle_rad, total_area_vision;
@@ -189,6 +119,12 @@ class RobotObstacleDetection
         bool continual_flag;
 };
 
+/*
+As data is analysed left to right, the function looks at the change in distance of the obstacles
+Once the function detects an obstacle closer than 1 foot, it keeps scanning until the distance starts
+increasing: which means that we reached the closest point of the obstacle, so we can assume that
+we have detected a whole obstacle.
+*/
 int RobotObstacleDetection::getNextObstacle(sensor_msgs::LaserScan msg)
 {
     // only returns minima within 1 foot.
@@ -215,12 +151,12 @@ int RobotObstacleDetection::getNextObstacle(sensor_msgs::LaserScan msg)
         {
             if(msg.ranges.at(loc_obst) >= msg.ranges.at(this->angle_loc)) // we find a new smaller value
             {
-                loc_obst = this->angle_loc; // set new obstacle
+                loc_obst = this->angle_loc; // set new obstacle's location
                 continue;
             }
             else
             {
-                this->continual_flag = true;
+                this->continual_flag = true; // This lets us know that we have encounter an obstacle, so more could come.
                 break; // new small value is not smaller than previous. we passed the pinnacle. break.
             }  
         }
@@ -228,6 +164,10 @@ int RobotObstacleDetection::getNextObstacle(sensor_msgs::LaserScan msg)
     return loc_obst;
 }
 
+/*
+Constructor.
+Initializes the member variables and fetches a first message from the odometry topic
+*/
 RobotObstacleDetection::RobotObstacleDetection()
 {
     // grab a single message
@@ -246,22 +186,32 @@ RobotObstacleDetection::RobotObstacleDetection()
     this->total_area_vision = abs(msg.angle_min) + abs(msg.angle_max);
     this->ranges_len = sizeof(msg.ranges)/sizeof(msg.ranges[0]);
 }
+
+// The call back function. Grabs message, disects it, and places data where it belongs. Turns flags on or off given the data.
 void RobotObstacleDetection::CallBack(sensor_msgs::LaserScan msg)
 {
-   std::vector<double> obstacle_locations;
+    // Vector to contain the locations(ray beam number) of every obstacle
+    std::vector<double> obstacle_locations;
+    // get the increment per location
     this->angle_increment = msg.angle_increment;
+    // reset the initial scanning variable for the data back to the begining (leftmost beam)
     this->angle_loc = 0;
+    // reset the min_val to leftmost beam (similar to a minimum algorithm)
     this->min_val = msg.ranges.at(this->angle_loc);
-    this->angle_rad = msg.angle_min + (this->angle_loc * this->angle_increment); // where was the closest object found
+    // initializes the initial angle in radians
+    this->angle_rad = msg.angle_min + (this->angle_loc * this->angle_increment);
+    // Gets the total range of vision
     this->total_area_vision = abs(msg.angle_min) + abs(msg.angle_max);
+    // gets the number of beams that were shot
     this->ranges_len = msg.ranges.size();
+    // resets the continual flag (turn on when we have found an obstacle and more could come.)
     this->continual_flag = false;
     while(true) // get all posible obstacles.
     {
         int val = this->getNextObstacle(msg);
         if(val == -1)
         {
-            break;
+            break;// getNextObstacle returns -1 when no new obstacles were found
         }
         obstacle_locations.push_back((double(val) * this->angle_increment) + msg.angle_min);
     }
@@ -270,12 +220,12 @@ void RobotObstacleDetection::CallBack(sensor_msgs::LaserScan msg)
     RIGHT_OBSTACLE = false;
     ESCAPE_FLAG = false;
     AVOID_FLAG = false;
-    ROS_INFO("Number of Obstacles: %d", (int) obstacle_locations.size());
+    if(DEBUG) ROS_INFO("Number of Obstacles: %d", (int) obstacle_locations.size());
     if(obstacle_locations.size() == 0)
     {
         return; // if no obstacles, then, keep flags false
     }
-    for(int i = 0; i < obstacle_locations.size(); i++)
+    for(int i = 0; i < obstacle_locations.size(); i++) // for every obstacle that was detected...
     {
         if(obstacle_locations.at(i) < 0) // mainly on the left.
         {
@@ -287,74 +237,17 @@ void RobotObstacleDetection::CallBack(sensor_msgs::LaserScan msg)
         }
         
     }
-    if(LEFT_OBSTACLE && RIGHT_OBSTACLE)
+    if(LEFT_OBSTACLE && RIGHT_OBSTACLE) // if obstacles on both sides, we have a symmetrical situation
     {
         ESCAPE_FLAG = true;
     }
-    else if(LEFT_OBSTACLE || RIGHT_OBSTACLE)
+    else if(LEFT_OBSTACLE || RIGHT_OBSTACLE) // if obstacles mainly on one side, we have an asymmetrical situation
     {
         AVOID_FLAG = true;
     }
-    ROS_INFO("Obstacles | Left: %d, Right: %d", (LEFT_OBSTACLE)?(1):(0), (RIGHT_OBSTACLE)?(1):(0));
-    //
+    if(DEBUG) ROS_INFO("Obstacles | Left: %d, Right: %d", (LEFT_OBSTACLE)?(1):(0), (RIGHT_OBSTACLE)?(1):(0));
     return;
 
-}
-
-void obstacleDetector(sensor_msgs::LaserScan msg)
-{
-/*
-This will be to detect a obstacle, it will have a variable that will be 
-equal to the ir detector
- {there will be a while loop used in this method} **not anymore. loop will be in main.**
-if the detector detects something left or right or in front it will alert 
-the variable called obstacle alert making it True
-else 
-obstacle alert will stay at False
-*/
-    
-    return;
-}
-void avoidDirection()
-{
-    /*
-    This method will have a while loop(so while(1)), it will aslo use
-    the ir detector, then there will be nested if-else statemnets 
-    it will be as such:
-    while(1)
-    {
-        if avoid_alert is true, then it will check each direction
-        if left = alert then the left ir sensor comes on
-        else if front = alert then front sensor turns on 
-        else if right = alert then right sensor turns on
-        May need to add an else at the end not sure yet if so then 
-        im assuming that would be else avoid_alert = false
-    }
-    */
-    return;
-}
-void motorDirection()
-{
-    // I took the liberty to change some of the varibales in the exercise i will write the 
-    // names here and explain 
-    // avoidCommand = gTW (This menas go this way so it tells the motor which way to go)
-    // avoidPercept = obstLoc (This notifiyng the motor where the obstacle is )
-    // obstacleAhead = forwardSpot (says if obsatcle is ahead)
-    // obstacleLeft = leftSpot 
-    // obstacleRight = rightSpot
-  /*
-  This method will tell the motor which way the bot needs to go 
-  will have  while loop 
-  inside of while loop:
-  if alert is true:
-    if obstLoc = fowardSpot:
-        gTW = left
-    else if obstLoc = leftSpot:
-        gTW = right
-    else if obstLoc = rightSpot:
-        gTW = left
-  */
-    return;
 }
 
 void motorDriver(ros::Publisher pub, geometry_msgs::Twist msg)
@@ -370,6 +263,12 @@ void motorDriver(ros::Publisher pub, geometry_msgs::Twist msg)
    return;
 }
 
+/*
+this class takes care of the gathering, analysis, and subsequent raise of flags for required commands.
+It works by initially storing an initial position and keeping track of subsequent positions. returns
+the distance between the initial and the subsequent via the getDistanceTraveled.
+The initial location is reset to the current via the setLoc.
+*/
 class RobotOdometry
 {
     public:
@@ -388,7 +287,9 @@ class RobotOdometry
         // get distance traveled from the point set to the given by recieve Msg
         double getDistanceTraveled()
         {
+            // get locations for the current position
             double x_c = this->curr_loc.pose.position.x, y_c = this->curr_loc.pose.position.y;
+            // get location of the stored position.
             double x_s = this->saved_loc.pose.position.x, y_s = this->saved_loc.pose.position.y;
             ROS_INFO("saved: x: %f, y: %f", this->saved_loc.pose.position.x, this->saved_loc.pose.position.y);
 
@@ -425,6 +326,7 @@ subscribe(topic, queue size, pointer to general function, object to call with)
 
 RobotOdometry::RobotOdometry()
 {
+    // Fetch a message
     ros::NodeHandle m;
     boost::shared_ptr<nav_msgs::Odometry const> sharedEdge;
     nav_msgs::Odometry edge;
@@ -433,9 +335,10 @@ RobotOdometry::RobotOdometry()
     {
         edge = *sharedEdge;
     }
+    // updates the member pointers with the initial data
     this->saved_loc = edge.pose;
     this->curr_loc = edge.pose;
-    ROS_INFO("Constructor initial values: x: %f, y: %f", this->saved_loc.pose.position.x, this->saved_loc.pose.position.y);
+    if(DEBUG) ROS_INFO("Constructor initial values: x: %f, y: %f", this->saved_loc.pose.position.x, this->saved_loc.pose.position.y);
 }
 
 /*
@@ -443,7 +346,7 @@ Note: The schema theory program depicted in Ex. 4 uses a parallel approach.
 Instead
 */
 
-
+// callback function for the teleoperative panel
 void teleop_callback(geometry_msgs::Twist msg)
 {
     MOVE_BACKWARDS = false; // +1
@@ -491,7 +394,7 @@ int main(int argc, char **argv)
         ros::Subscriber bump_sub = n.subscribe("/mobile_base/events/bumper", 1000, bumpCheck);
         // scan_sub: the laser scan topic contains the information on the closeness of objects.
         ros::Subscriber scan_sub = n.subscribe("/scan", 1000, &RobotObstacleDetection::CallBack, &robot_obst);
-        // 
+        // teleop_sub subscribes to the "remapped" topic for the turtlebot_teleop package.
         ros::Subscriber teleop_sub = n.subscribe("/teleop_control/key_capturer/cmd_vel", 1000, teleop_callback);
 
 
@@ -592,10 +495,7 @@ int main(int argc, char **argv)
                     msg.linear.x = double(0.0);
                 }
             }
-               // go away of the obstacle!
-/*               msg.linear.x = double(0.0);
-               msg.angular.z = double(-1.0);*/
-           // If we have bumped with something: stop
+            // teleop commands
            if(MOVE_FORWARD)
            {
                msg.linear.x = double(ROBOT_SPEED);
@@ -616,13 +516,14 @@ int main(int argc, char **argv)
                msg.angular.z = double(-1.0);
                msg.linear.x = float(0);
            }
+            // If we have bumped with something: stop
            if(BUMP_FLAG)
            {
                msg.linear.x = double(0.0);
                msg.angular.z = double(0.0);
            }
 
-            ROS_INFO("Distance Traveled from origin: %f", robot_odom.getDistanceTraveled());
+            if(DEBUG) ROS_INFO("Distance Traveled from origin: %f", robot_odom.getDistanceTraveled());
 
             motorDriver(motor_pub, msg); // officially submit what the robot will do next
             ros::spinOnce(); // call the subscriber functions to update the flags.

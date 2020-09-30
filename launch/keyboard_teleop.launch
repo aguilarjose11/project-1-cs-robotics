@@ -1,3 +1,4 @@
+<!--  Launch file to allow control of the turtle bot with keyboard -->
 <launch>
     <group ns="teleop_control">
             <node pkg="turtlebot_teleop" name="key_capturer" type="turtlebot_teleop_key" output="screen"/>
