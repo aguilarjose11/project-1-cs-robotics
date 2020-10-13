@@ -7,6 +7,7 @@
 #include "nav_msgs/Odometry.h"
 #include "kobuki_msgs/BumperEvent.h"
 #include "sensor_msgs/LaserScan.h"
+#include "reactive_robot/Cartesian_Odom.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -17,6 +18,8 @@
 #define DEBUG true
 // Offset of the kinect inside the turtlebot
 #define OFFSET_TBII double(0.4)
+// starting location of robot (2, 2).
+const int START_LOCATION[] = {2, 2};
 
 
 // Offset of the turtlebot's kinect laser scan. (it cannot detect anything below 0.5: too close!)
@@ -37,6 +40,29 @@ Required actions:
 5. turn randomly as the cruise behaviour (random inside 0-15 degrees) after every 1ft of movement
 6. drive forward as a part of cruise behaviour
 */
+
+
+/*
+    Notes on Project 2:
+    
+    /odom topic can be pretty useful to identify where to go, where we are at.
+    info:
+        - Uses quartenion coordinates. formulas:
+        angle: (arccos(w)*2)*180/PI -> angle in degrees.
+        back to quartelion: cos((angle * PI) / 180 * 2) = cos(angle * PI / 360)
+        - pose.pose.orientation
+            - 360 or 0
+                - +x
+            - 270
+                - +y
+            - 180
+                - -x
+            - 90
+                - -y
+            
+
+*/
+
 
 // Global variables:
 // these flags are used as schema theory.
@@ -277,6 +303,10 @@ class RobotOdometry
         {
             // Store most recent position
             this->curr_loc = msg.pose;
+            float feet_x = msg.pose.pose.position.x * 3.2808, feet_y = msg.pose.pose.position.y * 3.2808;
+            // if > 0.5, then, we are closer to the next point than the main digit is
+            this->loc_x = round(feet_x);
+            this->loc_y = round(feet_y);
         }  
         
         // sets the latest location as the new saved reference position.
@@ -298,6 +328,29 @@ class RobotOdometry
             // \/ (x_2 - x_1)^2 + (y_2 - y_1)^2   |
             return sqrt(pow(x_c - x_s, 2) + pow(y_c - y_s, 2));
         }
+        // Get the angle faced in degrees
+        double getFacedAngle()
+        {
+            // (arccos(w)*2)*180/PI = acos(w) * 360 / PI
+            /*
+            - 360 or 0
+                - +x
+            - 270
+                - +y
+            - 180
+                - -x
+            - 90
+                - -y
+            */
+            return (acos(this->curr_loc.pose.orientation.w) * 360) / M_PI;
+        }
+        void getCartesianPos(int c_pos[])
+        {
+            // created static to avoid removal from the stack once function is done.
+            c_pos[0] = this->loc_x;
+            c_pos[1] = this->loc_y;
+            return;
+        }
         // Constructor
         RobotOdometry();
         
@@ -306,6 +359,8 @@ class RobotOdometry
         // curr_loc contains the updated location.
         // saved_loc contains the last point stored to get the distance.
         geometry_msgs::PoseWithCovariance curr_loc, saved_loc;
+        // The cartesian location for the robot.
+        int loc_x, loc_y;
         // Sets the current given location. CALLBACK FUNCTION
         void setLoc(const nav_msgs::Odometry msg)
         {
@@ -338,6 +393,8 @@ RobotOdometry::RobotOdometry()
     // updates the member pointers with the initial data
     this->saved_loc = edge.pose;
     this->curr_loc = edge.pose;
+    this->loc_x = START_LOCATION[0];
+    this->loc_y = START_LOCATION[1];
     if(DEBUG) ROS_INFO("Constructor initial values: x: %f, y: %f", this->saved_loc.pose.position.x, this->saved_loc.pose.position.y);
 }
 
@@ -386,6 +443,8 @@ int main(int argc, char **argv)
 
         // motor_pub: to allow us to move the turtlebot. Uses geometry_msgs/Twist
         ros::Publisher motor_pub = n.advertise<geometry_msgs::Twist>("/mobile_base/commands/velocity", 1000);
+        // cartesian_odom: Allows to communicate the cartesian location with the monitor.
+        ros::Publisher cartesian_odom = n.advertise<reactive_robot::Cartesian_Odom>("/cartesian_odom", 1000);
 
 
         // odom_sub: gives us the location and movement information of the turtlebot. uses nav_msgs/Odometry
@@ -526,6 +585,13 @@ int main(int argc, char **argv)
             if(DEBUG) ROS_INFO("Distance Traveled from origin: %f", robot_odom.getDistanceTraveled());
 
             motorDriver(motor_pub, msg); // officially submit what the robot will do next
+            reactive_robot::Cartesian_Odom c_msg;
+            c_msg.dirrection = robot_odom.getFacedAngle();
+            int c_pos[2];
+            robot_odom.getCartesianPos(c_pos);
+            c_msg.x = c_pos[0];
+            c_msg.y = c_pos[1];
+            cartesian_odom.publish(c_msg);
             ros::spinOnce(); // call the subscriber functions to update the flags.
             loop_rate.sleep();
         }
