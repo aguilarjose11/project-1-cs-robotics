@@ -11,9 +11,28 @@ TODO:
 
  - [x] Create Package and basic folders.
  - [x] Figure out how to create a world as specified by the project (See Note 1).
- - [ ] Add basic C++ code (Figure out how, Note 1).
- - [ ] Follow Dr. hougen's HW example from 2003 and see if it is actually useful.
- - [ ] Other?
+ - [x] Add basic C++ code (Figure out how, Note 1).
+ - [x] Follow Dr. hougen's HW example from 2003 and see if it is actually useful.
+ - [x] Other?
+
+Project 2 -- cs-4023
+=====================
+
+TODO:
+-----
+
+ - change default action of robot to go forward and report new location based on the movement
+  - Check when we reach a foot of movement forward or we reach a new point?
+ - have a new node start to monitor progress (execution_monitor)
+ - create a new node to accept new location inputs (task_input)
+ - connect nodes together
+ - in main program, create a function to calculate the direction to which to move to in a
+   straight line. forget about walls for now.
+ - if bounce to wall, do action and immediatelly recalculate current location and direction to
+ travel
+ - test with a few experimental places.
+
+
 
 Installing the package:
 -----------------------
