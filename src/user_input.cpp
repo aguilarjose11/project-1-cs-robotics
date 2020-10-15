@@ -33,9 +33,15 @@ int main(int argc, char **argv)
     {
         printf("task >>>: ");
         int x_1, x_2, y_1, y_2;
-        if(scanf(" ((%d, %d), (%d, %d))", &x_1, &y_1, &x_2, &y_2) != 4)
+        int flag = scanf(" ((%d, %d), (%d, %d))", &x_1, &y_1, &x_2, &y_2);
+        if(flag == EOF)
         {
-            printf("Incorrect input. Input should be of the format ((x_1, y_1), (x_2, y_2)). All ints");
+            // end of file aka. ^D entered.
+            break;
+        }
+        else if(flag != 4)
+        { // incorrect input's format.
+            printf("Incorrect input. Input should be of the format ((x_1, y_1), (x_2, y_2)). All ints\n");
         }
         else
         {
