@@ -55,6 +55,7 @@ find_package(catkin REQUIRED  COMPONENTS
 add_message_files(
   FILES
   Cartesian_Odom.msg
+  User_Task.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -140,6 +141,9 @@ ${catkin_INCLUDE_DIRS}
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(node_control src/node_control.cpp)
 add_executable(execution_monitor src/execution_monitor.cpp)
+add_executable(robot_planner src/robot_planner.cpp)
+add_executable(user_input src/user_input.cpp)
+
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -151,6 +155,8 @@ add_executable(execution_monitor src/execution_monitor.cpp)
 ## same as for the library above
 add_dependencies(node_control ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(execution_monitor ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(robot_planner ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(user_input ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 
 ## Specify libraries to link a library or executable target against
@@ -158,6 +164,12 @@ target_link_libraries(node_control
   ${catkin_LIBRARIES}
 )
 target_link_libraries(execution_monitor
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(robot_planner
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(user_input
   ${catkin_LIBRARIES}
 )
 

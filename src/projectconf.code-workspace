@@ -1,0 +1,22 @@
+{
+	"folders": [
+		{
+			"name": "reactive_robot",
+			"path": ".."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"bitset": "cpp",
+			"cwchar": "cpp",
+			"random": "cpp",
+			"functional": "cpp",
+			"limits": "cpp",
+			"ratio": "cpp",
+			"core": "cpp"
+		},
+		"python.autoComplete.extraPaths": [
+			"/opt/ros/kinetic/lib/python2.7/dist-packages"
+		]
+	}
+}

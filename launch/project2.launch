@@ -1,0 +1,16 @@
+<!-- Main launch file for the project 1 solution -->
+<launch>
+    <!-- Launch the turtlebot simulation in gazebo with the specified world file -->
+    <include file="$(find turtlebot_gazebo)/launch/turtlebot_world.launch">
+        <arg name="world_file" value="$(find reactive_robot)/world/project2.world"/>
+    </include>
+    <!-- Launch the created node: node_control -->
+    <group ns="project1">
+        <node pkg="reactive_robot" name="project2_soln" type="node_control" output="screen"/>
+    </group>
+    <group ns="robot_planner">
+        <node pkg="reactive_robot" name="project2_planner" type="robot_planner" output="screen"/>
+    </group>
+
+    <!-- Launch the gmapping -->
+</launch>

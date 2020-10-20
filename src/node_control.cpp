@@ -8,6 +8,8 @@
 #include "kobuki_msgs/BumperEvent.h"
 #include "sensor_msgs/LaserScan.h"
 #include "reactive_robot/Cartesian_Odom.h"
+#include "std_msgs/Bool.h"
+#include "std_msgs/String.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -17,7 +19,7 @@
 // Debuging mode
 #define DEBUG true
 // Offset of the kinect inside the turtlebot
-#define OFFSET_TBII double(0.4)
+#define OFFSET_TBII double(0.3)
 // starting location of robot (2, 2).
 const int START_LOCATION[] = {2, 2};
 
@@ -79,6 +81,10 @@ bool MOVE_FORWARD = false;
 bool MOVE_BACKWARDS = false;
 bool TURN_LEFT = false;
 bool TURN_RIGHT = false;
+// Task planner global variables.
+bool TASK_AVAILABLE = false;
+int CURR_TASK_X = 100;
+int CURR_TASK_Y = 100;
 
 // function to return the smallest values within an array of unknown size
 // Used to create the obstacle "map"
@@ -246,7 +252,7 @@ void RobotObstacleDetection::CallBack(sensor_msgs::LaserScan msg)
     RIGHT_OBSTACLE = false;
     ESCAPE_FLAG = false;
     AVOID_FLAG = false;
-    if(DEBUG) ROS_INFO("Number of Obstacles: %d", (int) obstacle_locations.size());
+    //if(DEBUG) ROS_INFO("Number of Obstacles: %d", (int) obstacle_locations.size());
     if(obstacle_locations.size() == 0)
     {
         return; // if no obstacles, then, keep flags false
@@ -342,7 +348,18 @@ class RobotOdometry
             - 90
                 - -y
             */
-            return (acos(this->curr_loc.pose.orientation.w) * 360) / M_PI;
+           double w_val = this->curr_loc.pose.orientation.w;
+           double normalizing_factor = this->curr_loc.pose.orientation.z;
+           if(normalizing_factor < 0)
+           {
+               return (acos(-w_val) * 360.0) / M_PI;
+           }
+           else
+           {
+               return (acos(w_val) * 360.0) / M_PI;
+           }
+           
+            
         }
         void getCartesianPos(int c_pos[])
         {
@@ -352,6 +369,7 @@ class RobotOdometry
             return;
         }
         // Constructor
+        float getAngleToPoint(int x, int y);
         RobotOdometry();
         
 
@@ -369,6 +387,25 @@ class RobotOdometry
 
         }
 };
+
+/*
+    Returns the angle to the point from the current position.
+*/
+float RobotOdometry::getAngleToPoint(int x, int y)
+{
+    int loc[2];
+    getCartesianPos(loc);
+    float angle_rad = atan2(y - loc[1], x - loc[0]);
+    if(angle_rad >= 0)
+    {
+        return angle_rad * 180 / M_PI;
+    }
+    else
+    {
+        return (2*M_PI + angle_rad)*180/M_PI;
+    }
+}
+
 
 /*
 Note on subscribe:
@@ -430,6 +467,28 @@ void teleop_callback(geometry_msgs::Twist msg)
 }
 
 
+/*
+    function used to update task available flag
+*/
+void tAvailCallBack(std_msgs::Bool msg)
+{
+    TASK_AVAILABLE = msg.data;
+}
+
+/*
+    Function used to update the current task being followed.
+*/
+void taskCallBack(reactive_robot::Cartesian_Odom msg)
+{
+    if(TASK_AVAILABLE)
+    {
+        CURR_TASK_X = msg.x;
+        CURR_TASK_Y = msg.y;
+    }
+    // if(DEBUG) ROS_INFO("Task: (%d, %d) - Actual (zzzzz", CURR_TASK_X, CURR_TASK_Y);
+}
+
+
 int main(int argc, char **argv)
 {
         // Initializes this ros node
@@ -445,7 +504,12 @@ int main(int argc, char **argv)
         ros::Publisher motor_pub = n.advertise<geometry_msgs::Twist>("/mobile_base/commands/velocity", 1000);
         // cartesian_odom: Allows to communicate the cartesian location with the monitor.
         ros::Publisher cartesian_odom = n.advertise<reactive_robot::Cartesian_Odom>("/cartesian_odom", 1000);
-
+        // Publish on progress with tasks to planner.
+        ros::Publisher task_progress = n.advertise<std_msgs::Bool>("/robot_planner/planner/task_achieved", 1000);
+        //
+        ros::Publisher monitor_pub = n.advertise<std_msgs::String>("/robot_planner/planner/monitor", 1000);
+        //
+        ros::Publisher task_error = n.advertise<std_msgs::Bool>("/robot_planner/planner/task_error", 1000);
 
         // odom_sub: gives us the location and movement information of the turtlebot. uses nav_msgs/Odometry
         ros::Subscriber odom_sub = n.subscribe("/odom", 1000, &RobotOdometry::recieveMsg, &robot_odom);
@@ -455,19 +519,23 @@ int main(int argc, char **argv)
         ros::Subscriber scan_sub = n.subscribe("/scan", 1000, &RobotObstacleDetection::CallBack, &robot_obst);
         // teleop_sub subscribes to the "remapped" topic for the turtlebot_teleop package.
         ros::Subscriber teleop_sub = n.subscribe("/teleop_control/key_capturer/cmd_vel", 1000, teleop_callback);
-
-
+        // Used to update wether we got a task available
+        ros::Subscriber t_avail_sub = n.subscribe("/robot_planner/planner/task_available", 1000, tAvailCallBack);
+        // 
+        ros::Subscriber task_sub = n.subscribe("/robot_planner/planner/current_task", 1000, taskCallBack);
+        
         // rate at which the program is running/publishing: 5 hz
         // ;Therefore, 5 revolutions per second: 1/5 seconds
         const int HZ_ROS = 15; // 
         const double ROBOT_SPEED = 0.25; // whats robot speed 0 - 1.
         const double RADIAN_TOP_SPEED = ((HZ_ROS * 15 * M_PI)/180); // multiply
+        const float ERROR_VAL = 2; // acceptable error in dirrection.
 
         ros::Rate loop_rate(HZ_ROS); // Still to see what is optimal
         unsigned short count = 0; // counts the number of times we went thourgh a loop.
         int pos_or_neg = 0;
         int timer  = 0; // This will be the counter for checking the time
-
+        int timer_2 = 0;
         /*
         we can only tell how fast to go forward/backward or turning.
         */
@@ -493,50 +561,106 @@ int main(int argc, char **argv)
            // of movement that the robot will do next.
            if(cruise_mode()) // if(true)
            {
-               // rotation is measured in radias/second
-               // between 0 - 15 degrees: 0 rads - 0.261799 rads (15{degrees}*PI/180)
-               // velocity: 0 - 0.261799 * 5 = 75*PI/180
-                msg.linear.x = double(ROBOT_SPEED);
-                // check if we have moved 1 foot to know if we need 
-                // keep turning for the next two cycles.
-                // getDistanceTraveled == 0.0
-                if(robot_odom.getDistanceTraveled() >= double(0.3048) || count != 0) // if we have traveled more than a foot.
-                {
-                    if(count == 0)
+               if(TASK_AVAILABLE && !AVOID_FLAG && !ESCAPE_FLAG)
+               {// gotta follow a point in map.
+                    // calculate the direction to face.
+                    float angle = robot_odom.getAngleToPoint(CURR_TASK_X, CURR_TASK_Y);
+                    if(DEBUG) printf("Global X: %d | Global Y: %d\n", CURR_TASK_X, CURR_TASK_Y);
+                    float curr_angle = robot_odom.getFacedAngle();
+                    // if(abs(robot_odom.getFacedAngle()) > ERROR_VAL)
+                    geometry_msgs::Twist tmp_msg;
+                    // Calculate the direction of turn.
+                    float diff_angle = curr_angle + 180;
+                    float differential = 1;
+                    float offset = 0;
+                    if(diff_angle > 360)
                     {
-                        pos_or_neg = (int)(rand()%2);
-                        count = 2;
+                        offset = abs(360 - diff_angle); // 0 -> offset
+                        if(angle >= curr_angle || angle <= offset)
+                        {
+                            // in positive area
+                            differential = 1;
+                        }
+                        else
+                        {
+                            // in negative area
+                            differential = -1;
+                        }
                     }
                     else
                     {
-                        count--;
-
+                        if(angle >= curr_angle && angle <= diff_angle)
+                        {
+                            // in positive area
+                            differential = 1;
+                        }
+                        else
+                        {
+                            // in negative area
+                            differential = -1;
+                        }
+                        
                     }
-                    msg.linear.x = double(0.0);
-                    msg.angular.z = double((pos_or_neg == 0)?(1):(-1));
-                    robot_odom.setLoc(); // reset travel distance to 0
-                }
+                    
+                    
+                    tmp_msg.angular.z = double(differential);
+                    while(abs(robot_odom.getFacedAngle() - angle) > ERROR_VAL && ros::ok())
+                    {
+                        if(DEBUG) printf("Robot Angle: %f | target: %f\n", robot_odom.getFacedAngle(), angle);
+                        motorDriver(motor_pub, tmp_msg);
+                        ros::spinOnce();
+                    }
+                    tmp_msg.angular.z = double(0.0);
+                    motorDriver(motor_pub, tmp_msg);
+                    int robot_loc[2];
+                    robot_odom.getCartesianPos(robot_loc);
+                    if(abs(robot_loc[0] - CURR_TASK_X) <= 1 && abs(robot_loc[1] - CURR_TASK_Y) <= 1 && !timer_2--)
+                    {
+                        // We have made it to the location!
+                        timer_2 = 5;
+                        std_msgs::Bool b_msg;
+                        b_msg.data = true;
+                        task_progress.publish(b_msg);
+                        ros::spinOnce();
+                    }
+                    else
+                    { // Still traveling...
+                        msg.linear.x = double(ROBOT_SPEED);
+                    }
+
+               }
            }
 
             // symmetrical. turn around 180 degrees
             if(ESCAPE_FLAG || timer)
             {
-                
-             if (timer == 0)
-             {
+                if(TASK_AVAILABLE)
+                {
+                    // Whoops, we have had an issue! report to say so!
+                    std_msgs::String msg_str;
+                    std_msgs::Bool msg_err;
+                    msg_err.data = true;
+                    msg_str.data = "Task unable to be fullfilled!\n";
+                    monitor_pub.publish(msg_str);
+                    task_error.publish(msg_err);
 
-                 timer = 15; // This should give us close to 180 degrees if i use the ratio ised earlier
+                }
+                if (timer == 0)
+                {
 
-             }
-             else 
-             {
-                 timer--; // timer will start to go down this affects 
-             }
-             msg.linear.x = double(0.0);
-             msg.angular.z = double(1.0);
+                    timer = 15; // This should give us close to 180 degrees if i use the ratio ised earlier
+
+                }
+                else 
+                {
+                    timer--; // timer will start to go down this affects 
+                }
+                msg.linear.x = double(0.0);
+                msg.angular.z = double(1.0);
             }
 
             // asymmetrical turn away from the danger
+            // Just because there is an obstacle does it mean that we are doomed!
             if(AVOID_FLAG && !timer)
             {
                 // first thing is to see if obstacle is left or right 
@@ -578,11 +702,21 @@ int main(int argc, char **argv)
             // If we have bumped with something: stop
            if(BUMP_FLAG)
            {
-               msg.linear.x = double(0.0);
-               msg.angular.z = double(0.0);
+                msg.linear.x = double(0.0);
+                msg.angular.z = double(0.0);
+                if(TASK_AVAILABLE)
+                {
+                    // Whoops, we have had an issue! report to say so!
+                    std_msgs::String msg_str;
+                    std_msgs::Bool msg_err;
+                    msg_err.data = true;
+                    msg_str.data = "Task unable to be fullfilled!\n";
+                    monitor_pub.publish(msg_str);
+                    task_error.publish(msg_err);
+                }
            }
 
-            if(DEBUG) ROS_INFO("Distance Traveled from origin: %f", robot_odom.getDistanceTraveled());
+            //if(DEBUG) ROS_INFO("Distance Traveled from origin: %f", robot_odom.getDistanceTraveled());
 
             motorDriver(motor_pub, msg); // officially submit what the robot will do next
             reactive_robot::Cartesian_Odom c_msg;
