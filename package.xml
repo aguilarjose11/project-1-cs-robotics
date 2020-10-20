@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>reactive_robot</name>
-  <version>0.0.1</version>
-  <description>Project 1 where we create a reactive robot CS-4023 -- FALL 2020.</description>
+  <version>0.0.2</version>
+  <description>Project 2 where we create a reactive robot CS-4023 -- FALL 2020.</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
