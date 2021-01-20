@@ -161,7 +161,7 @@ int RobotObstacleDetection::getNextObstacle(sensor_msgs::LaserScan msg)
 {
     // only returns minima within 1 foot.
     bool obst_flag = false;
-    while(this->angle_loc < this->ranges_len && isnan(msg.ranges.at(this->angle_loc))) // check that we arent already in a minima from a previous obstacle
+    while(this->angle_loc < this->ranges_len && std::isnan(msg.ranges.at(this->angle_loc))) // check that we arent already in a minima from a previous obstacle
     {
         (this->angle_loc)++;
     } // go until we either get to the end of the vector or get outside the 1 ft distance

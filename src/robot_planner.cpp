@@ -62,8 +62,10 @@ void RobotPlanner::newCoordinateCallBack(reactive_robot::User_Task msg)
     this->plan_x.push(msg.x_2);
     this->plan_y.push(msg.y_1);
     this->plan_y.push(msg.y_2);
+    ROS_INFO("Added point Succesfully!");
     if(!(this->plan_flag)) // there is no plans as of right now
     {
+        ROS_INFO("There is no plans right now. plan_flag was false.");
         this->plan_flag = true;
         // first place to go to.
         this->curr_task_x = this->plan_x.front();

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0.2)
 project(reactive_robot)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -143,6 +143,7 @@ add_executable(node_control src/node_control.cpp)
 add_executable(execution_monitor src/execution_monitor.cpp)
 add_executable(robot_planner src/robot_planner.cpp)
 add_executable(user_input src/user_input.cpp)
+add_executable(tour_input src/tour_interface.cpp)
 
 
 ## Rename C++ executable without prefix
@@ -170,6 +171,10 @@ target_link_libraries(robot_planner
   ${catkin_LIBRARIES}
 )
 target_link_libraries(user_input
+  ${catkin_LIBRARIES}
+)
+
+target_link_libraries(tour_input
   ${catkin_LIBRARIES}
 )
 
