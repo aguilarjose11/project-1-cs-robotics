@@ -29,7 +29,7 @@ void printPath(int parent[], int j);
 */
 const std::vector<int> GOAL_POINTS = {0, 2, 3, 5, 6, 9, 10, 8};
 
-const std::vector<std::vector<int>> MAP_POINTS = {
+const std::vector<std::vector<double>> MAP_POINTS = {
     {2, 24, 2 , 25, 42, 42, 40, 58, 58, 24, 24},
     {2, 4 , 40, 12, 4 , 16, 40, 40, 76, 40, 76}
 };
