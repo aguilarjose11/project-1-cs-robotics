@@ -73,8 +73,8 @@ int main(int argc, char **argv)
     double round_zero = 0.05;
     double alpha = 1;
     // note that n_x * n_y = h_layer_size
-    unsigned int n_x = 8;
-    unsigned int n_y = 8;
+    unsigned int n_x = 60;
+    unsigned int n_y = 80;
     double delay_distance = 0.2;
     unsigned int distance_unit = 1;
     double sigma_neighbor = 1;
@@ -87,6 +87,7 @@ int main(int argc, char **argv)
     WorldRep world_rep = WorldRep(k_nought, tau_m, 
     init_v, round_zero, n_x, n_y, delay_distance, 
     sigma_neighbor, eta_d, t_max, u_max, prune_dist);
+
     world_rep.train(MAP_TRAINNING);
 
 
@@ -169,18 +170,19 @@ int main(int argc, char **argv)
                 }
                 // if robot is not at hoped for location, we will start by going there!
                 // Find fastest path.
-                dijkstra(DISTANCE_MATRIX, closest_node, goal_node);
+                // dijkstra(DISTANCE_MATRIX, closest_node, goal_node);
                 // command for fastest path.
-                for(int point_set = 0; point_set < CURRENT_PATH.size(); point_set++)
+                std::vector<double> current_position(curr_x, curr_y);
+                std::vector<double> goal_position(MAP_POINTS[0][goal_node], MAP_POINTS[1][goal_node]);
+                std::vector<std::vector<double>> path = world_rep.get_path(WorldRep::PathAlgorithm::dijkstras, current_position, goal_position);
+                for(int point_set = 1; point_set < path.size(); point_set++)
                 {
-                    int x = MAP_POINTS.at(0).at(CURRENT_PATH.at(point_set));
-                    int y = MAP_POINTS.at(1).at(CURRENT_PATH.at(point_set));
-                    if(DEBUG) ROS_INFO("Destination location: (%d, %d).\n", x, y);
+                    if(DEBUG) ROS_INFO("Destination location: (%d, %d).\n", path.at(0).at(point_set), path.at(1).at(point_set));
                     reactive_robot::User_Task msg;
-                    msg.x_1 = x;
-                    msg.y_1 = y;
-                    msg.x_2 = x;
-                    msg.y_2 = y;
+                    msg.x_1 = path.at(0).at(point_set - 1);
+                    msg.y_1 = path.at(1).at(point_set - 1);
+                    msg.x_2 = path.at(0).at(point_set);
+                    msg.y_2 = path.at(1).at(point_set);
                     user_dirs.publish(msg);
                 }
 
