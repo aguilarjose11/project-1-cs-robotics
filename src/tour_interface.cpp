@@ -87,6 +87,7 @@ int main(int argc, char **argv)
     WorldRep world_rep = WorldRep(k_nought, tau_m, 
     init_v, round_zero, n_x, n_y, delay_distance, 
     sigma_neighbor, eta_d, t_max, u_max, prune_dist);
+    world_rep.train(MAP_TRAINNING);
 
 
 
